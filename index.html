@@ -367,7 +367,11 @@
     if (sel === '__custom__') return $('fp-custom').value.trim();
     return sel;
   }
-
+  function encodeParam(v) {
+    let d = v;
+    try { d = decodeURIComponent(v); } catch (e) {}
+    return encodeURIComponent(d);
+  }
   function buildEditedParams(baseParams) {
     const params = Object.assign({}, baseParams);
     const fp = currentFpValue();
@@ -378,7 +382,7 @@
     if (fp) params.fp = fp; else delete params.fp;
     if (sni) params.sni = sni; else delete params.sni;
     if (cs) params.cs = cs; else delete params.cs;
-    if (fm) params.fm = fm; else delete params.fm;
+    if (fm) params.fm = encodeParam(fm); else delete params.fm;
 
     return params;
   }
