@@ -5,3 +5,5 @@
 [BPB PANEL1](https://raw.githubusercontent.com/Not0-0Parsa/vlessFF/refs/heads/main/panel1.txt) (pages)
 
 [BPB PANEL2](https://raw.githubusercontent.com/Not0-0Parsa/vlessFF/refs/heads/main/panel2.txt) (workers)
+
+[CREATE PANEL](https://wizard.bpb-panel.workers.dev)
