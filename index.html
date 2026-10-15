@@ -339,10 +339,9 @@
   $('preset-btn').addEventListener('click', () => {
     $('cs-value').value = PRESET_CS;
     $('fm-value').value = PRESET_FM;
-    if (!$('fp-value').value || $('fp-value').value === '__custom__') {
-      $('fp-value').value = 'unsafe';
-      $('fp-custom').style.display = 'none';
-    }
+    $('fp-value').value = 'unsafe';
+    $('fp-custom').value = '';
+    $('fp-custom').style.display = 'none';
   });
 
   $('clear-fp-btn').addEventListener('click', () => {
