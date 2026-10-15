@@ -108,7 +108,7 @@
   .copy-btn { float: right; }
   details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
 
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
     body {
       padding: 16px 12px 32px;
     }
@@ -126,18 +126,18 @@
       grid-template-columns: 1fr;
       gap: 0;
     }
-    button {
-      min-height: 42px;
-      margin-right: 6px;
+    textarea, input, select {
+      min-height: 44px;
+      font-size: 16px;
     }
-    #preset-btn,
-    #clear-fp-btn,
-    #bulk-add-btn,
-    #bulk-replace-btn,
-    #add-endpoint-btn,
-    #clear-endpoints-btn {
+    textarea {
+      min-height: 96px;
+    }
+    button {
+      display: block;
       width: 100%;
-      margin-right: 0;
+      min-height: 42px;
+      margin: 10px 0 0;
     }
     .endpoint-item {
       align-items: stretch;
@@ -146,13 +146,9 @@
       min-width: 0;
     }
     .endpoint-item button {
+      width: auto;
       min-width: 44px;
       padding: 8px;
-    }
-    #generate-btn,
-    #copy-btn {
-      width: 100%;
-      margin: 6px 0 0;
     }
     .copy-btn {
       float: none;
