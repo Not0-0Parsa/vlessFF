@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VLESS Config Tool</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2f3a;
+    --text: #e6e8eb;
+    --muted: #9aa2ad;
+    --accent: #5b8def;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+    margin-top: 12px;
+  }
+  label:first-child { margin-top: 0; }
+  textarea, input, select {
+    width: 100%;
+    background: #0d0f13;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-top: 14px;
+    margin-right: 8px;
+  }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  button:hover { opacity: 0.9; }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-top: 8px;
+  }
+  .row input { flex: 1; }
+  .row button { margin: 0; padding: 8px 10px; }
+  .endpoint-list { margin-top: 8px; }
+  .endpoint-item {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .endpoint-item input { flex: 1; }
+  .endpoint-item button {
+    margin: 0;
+    background: #3a2530;
+    color: #f2a4b8;
+  }
+  .out {
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: #0d0f13;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .err { color: #f2a4b8; font-size: 0.85rem; margin-top: 8px; }
+  .copy-btn { float: right; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<h1>VLESS Config Tool</h1>
+<p class="sub">Runs entirely in your browser — nothing is sent anywhere. Paste a config, optionally tweak fingerprint values, and/or generate variants against other host:port endpoints.</p>
+
+<div class="panel">
+  <label for="input-url">VLESS share-link</label>
+  <textarea id="input-url" placeholder="vless://uuid@host:port?encryption=none&security=tls&sni=example.com&type=tcp&path=%2F#MyConfig"></textarea>
+  <div id="parse-err" class="err"></div>
+</div>
+
+<div class="panel">
+  <h3 style="margin-top:0;">Fingerprint / TLS options</h3>
+  <div class="grid2">
+    <div>
+      <label for="fp-value">fp (fingerprint)</label>
+      <select id="fp-value">
+        <option value="unsafe">unsafe</option>
+        <option value="chrome">chrome</option>
+        <option value="firefox">firefox</option>
+        <option value="safari">safari</option>
+        <option value="ios">ios</option>
+        <option value="android">android</option>
+        <option value="edge">edge</option>
+        <option value="360">360</option>
+        <option value="qq">qq</option>
+        <option value="random">random</option>
+        <option value="randomized">randomized</option>
+        <option value="__custom__">custom…</option>
+      </select>
+      <input id="fp-custom" placeholder="custom fp value" style="display:none; margin-top:6px;">
+    </div>
+    <div>
+      <label for="sni-value">sni</label>
+      <input id="sni-value" placeholder="example.com">
+    </div>
+  </div>
+
+  <label for="cs-value">cs (cipher suites, raw query-encoded string — leave blank to omit)</label>
+  <textarea id="cs-value" placeholder="TLS_AES_256_GCM_SHA384%3ATLS_CHACHA20_POLY1305_SHA256%3A..."></textarea>
+
+  <label for="fm-value">fm (fragment profile, raw query-encoded string — leave blank to omit)</label>
+  <textarea id="fm-value" placeholder="%7B%22tcp%22%3A...%7D"></textarea>
+
+  <button id="preset-btn" class="secondary" type="button">Fill cs/fm with a common preset</button>
+  <button id="clear-fp-btn" class="secondary" type="button">Clear fingerprint fields</button>
+</div>
+
+<div class="panel">
+  <h3 style="margin-top:0;">Generate endpoint variants (optional)</h3>
+  <p class="sub" style="margin-top:0;">Add alternate host:port pairs. One config will be rendered per entry, using the same uuid/params but a different endpoint. Leave empty to just render the single edited config below.</p>
+  <label for="bulk-endpoints">Paste a list (one per line, "ip" or "ip:port" — missing port defaults to 443)</label>
+  <textarea id="bulk-endpoints" placeholder="45.80.111.8:443&#10;104.26.3.165&#10;172.67.200.133:443"></textarea>
+  <button id="bulk-add-btn" class="secondary" type="button">Add all from list</button>
+  <button id="bulk-replace-btn" class="secondary" type="button">Replace list with these</button>
+
+  <div id="endpoint-list" class="endpoint-list"></div>
+  <button id="add-endpoint-btn" class="secondary" type="button">+ Add endpoint</button>
+  <button id="clear-endpoints-btn" class="secondary" type="button">Clear all</button>
+</div>
+
+<button id="generate-btn" type="button">Generate</button>
+<button id="copy-btn" class="secondary" type="button">Copy output</button>
+
+<div class="panel" style="margin-top:18px;">
+  <label style="margin-top:0;">Output</label>
+  <div id="output" class="out">(nothing yet)</div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+
+  // ---- parsing helpers, mirroring the Python module's logic ----
+
+  function parseConfig(rawUrl) {
+    let u;
+    try {
+      u = new URL(rawUrl.trim());
+    } catch (e) {
+      throw new Error("Could not parse this as a URL. Is it a valid VLESS link?");
+    }
+    if (u.protocol.replace(':', '') !== 'vless') {
+      throw new Error("Scheme is not 'vless://' — is this a valid VLESS link?");
+    }
+    if (!u.username || !u.hostname || !u.port) {
+      throw new Error("URL is missing uuid, host, or port.");
+    }
+    const params = {};
+    for (const [k, v] of u.searchParams.entries()) {
+      params[k] = v;
+    }
+    return {
+      uuid: u.username,
+      host: u.hostname,
+      port: u.port,
+      params: params,
+      name: decodeURIComponent(u.hash.replace(/^#/, '')) || ''
+    };
+  }
+
+  // Order fields are written back out in. Anything typed but not
+  // listed here still gets included at the end, preserving other params.
+  const PARAM_ORDER = ["encryption", "security", "sni", "fp", "alpn", "cs", "fm", "type", "host", "path"];
+
+  function renderConfig(cfg) {
+    const parts = [];
+    const used = new Set();
+    for (const key of PARAM_ORDER) {
+      if (cfg.params[key] === undefined || cfg.params[key] === '') continue;
+      let value = cfg.params[key];
+      if (key === 'path') {
+        // keep path safely escaped but preserve slashes
+        value = encodeURIComponent(value).replace(/%2F/g, '/');
+      }
+      parts.push(`${key}=${value}`);
+      used.add(key);
+    }
+    // preserve any extra params not in our known order
+    for (const key of Object.keys(cfg.params)) {
+      if (used.has(key) || cfg.params[key] === '') continue;
+      parts.push(`${key}=${cfg.params[key]}`);
+    }
+    let url = `vless://${cfg.uuid}@${cfg.host}:${cfg.port}?${parts.join('&')}`;
+    if (cfg.name) url += `#${encodeURIComponent(cfg.name)}`;
+    return url;
+  }
+
+  // A common cipher-suite / fragmentation preset (kept query-encoded,
+  // just like the original), offered as a convenience fill-in.
+  const PRESET_CS =
+    "TLS_AES_256_GCM_SHA384%3A" +
+    "TLS_CHACHA20_POLY1305_SHA256%3A" +
+    "TLS_AES_128_GCM_SHA256%3A" +
+    "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384%3A" +
+    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384%3A" +
+    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256%3A" +
+    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256%3A" +
+    "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256%3A" +
+    "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256%3A" +
+    "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA%3A" +
+    "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA%3A" +
+    "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256%3A" +
+    "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256";
+
+  const PRESET_FM =
+    "%7B%22tcp%22%3A%5B%7B%22type%22%3A%22fragment%22%2C" +
+    "%22settings%22%3A%7B%22packets%22%3A%22tlshello%22%2C" +
+    "%22lengths%22%3A%5B%225%22%2C%2294%22%2C%221%22%5D%2C" +
+    "%22delays%22%3A%5B%220%22%5D%2C%22maxSplit%22%3A%220%22" +
+    "%7D%7D%2C%7B%22type%22%3A%22fragment%22%2C" +
+    "%22settings%22%3A%7B%22packets%22%3A%221-1%22%2C" +
+    "%22lengths%22%3A%5B%22109%22%2C%221%22%5D%2C" +
+    "%22delays%22%3A%5B%221%22%5D%2C%22maxSplit%22%3A%22355%22" +
+    "%7D%7D%5D%7D";
+
+  // ---- endpoint list UI ----
+
+  function addEndpointRow(value = '') {
+    const row = document.createElement('div');
+    row.className = 'endpoint-item';
+    row.innerHTML = `
+      <input type="text" placeholder="1.2.3.4:443" value="${value}">
+      <button type="button" title="Remove">✕</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    $('endpoint-list').appendChild(row);
+  }
+
+  $('add-endpoint-btn').addEventListener('click', () => addEndpointRow());
+
+  $('clear-endpoints-btn').addEventListener('click', () => {
+    $('endpoint-list').innerHTML = '';
+  });
+
+  // Normalize a pasted line into "ip:port" (or "host:port"), defaulting
+  // the port to 443 when none is given. Handles bare IPv4, bare hosts,
+  // and already-complete ip:port / host:port pairs. Ignores blank lines
+  // and de-dupes exact repeats.
+  function normalizeEndpointLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+    // already has a :port suffix (numeric)
+    const m = trimmed.match(/^(.+):(\d+)$/);
+    if (m) return `${m[1]}:${m[2]}`;
+    // no port given — default to 443
+    return `${trimmed}:443`;
+  }
+
+  function parseBulkEndpoints() {
+    const raw = $('bulk-endpoints').value;
+    const lines = raw.split(/\r?\n/).map(normalizeEndpointLine).filter(Boolean);
+    // de-dupe while preserving order
+    const seen = new Set();
+    const result = [];
+    for (const l of lines) {
+      if (!seen.has(l)) { seen.add(l); result.push(l); }
+    }
+    return result;
+  }
+
+  $('bulk-add-btn').addEventListener('click', () => {
+    const entries = parseBulkEndpoints();
+    // avoid duplicating rows already present
+    const existing = new Set(Array.from(document.querySelectorAll('.endpoint-item input')).map(i => i.value.trim()));
+    // if the only existing row is a single empty one, drop it first
+    const rows = document.querySelectorAll('.endpoint-item input');
+    if (rows.length === 1 && rows[0].value.trim() === '') {
+      rows[0].closest('.endpoint-item').remove();
+    }
+    entries.forEach(e => {
+      if (!existing.has(e)) addEndpointRow(e);
+    });
+    $('bulk-endpoints').value = '';
+  });
+
+  $('bulk-replace-btn').addEventListener('click', () => {
+    const entries = parseBulkEndpoints();
+    $('endpoint-list').innerHTML = '';
+    entries.forEach(e => addEndpointRow(e));
+    $('bulk-endpoints').value = '';
+  });
+
+  // ---- fp custom toggle ----
+  $('fp-value').addEventListener('change', () => {
+    $('fp-custom').style.display = $('fp-value').value === '__custom__' ? 'block' : 'none';
+  });
+
+  $('preset-btn').addEventListener('click', () => {
+    $('cs-value').value = PRESET_CS;
+    $('fm-value').value = PRESET_FM;
+    if (!$('fp-value').value || $('fp-value').value === '__custom__') {
+      $('fp-value').value = 'unsafe';
+      $('fp-custom').style.display = 'none';
+    }
+  });
+
+  $('clear-fp-btn').addEventListener('click', () => {
+    $('cs-value').value = '';
+    $('fm-value').value = '';
+    $('fp-custom').value = '';
+  });
+
+  // ---- prefill fingerprint fields from a parsed config, if present ----
+  function prefillFromParsed(cfg) {
+    if (cfg.params.sni) $('sni-value').value = cfg.params.sni;
+    if (cfg.params.fp) {
+      const known = Array.from($('fp-value').options).some(o => o.value === cfg.params.fp);
+      if (known) {
+        $('fp-value').value = cfg.params.fp;
+        $('fp-custom').style.display = 'none';
+      } else {
+        $('fp-value').value = '__custom__';
+        $('fp-custom').style.display = 'block';
+        $('fp-custom').value = cfg.params.fp;
+      }
+    }
+    if (cfg.params.cs) $('cs-value').value = cfg.params.cs;
+    if (cfg.params.fm) $('fm-value').value = cfg.params.fm;
+  }
+
+  $('input-url').addEventListener('blur', () => {
+    const raw = $('input-url').value.trim();
+    if (!raw) return;
+    try {
+      const cfg = parseConfig(raw);
+      prefillFromParsed(cfg);
+      $('parse-err').textContent = '';
+    } catch (e) {
+      $('parse-err').textContent = e.message;
+    }
+  });
+
+  // ---- generate ----
+
+  function currentFpValue() {
+    const sel = $('fp-value').value;
+    if (sel === '__custom__') return $('fp-custom').value.trim();
+    return sel;
+  }
+
+  function buildEditedParams(baseParams) {
+    const params = Object.assign({}, baseParams);
+    const fp = currentFpValue();
+    const sni = $('sni-value').value.trim();
+    const cs = $('cs-value').value.trim();
+    const fm = $('fm-value').value.trim();
+
+    if (fp) params.fp = fp; else delete params.fp;
+    if (sni) params.sni = sni; else delete params.sni;
+    if (cs) params.cs = cs; else delete params.cs;
+    if (fm) params.fm = fm; else delete params.fm;
+
+    return params;
+  }
+
+  $('generate-btn').addEventListener('click', () => {
+    const out = $('output');
+    const raw = $('input-url').value.trim();
+    if (!raw) {
+      out.textContent = 'Paste a VLESS link above first.';
+      return;
+    }
+
+    let cfg;
+    try {
+      cfg = parseConfig(raw);
+      $('parse-err').textContent = '';
+    } catch (e) {
+      $('parse-err').textContent = e.message;
+      out.textContent = 'Fix the input above.';
+      return;
+    }
+
+    const editedParams = buildEditedParams(cfg.params);
+    const endpointInputs = Array.from(document.querySelectorAll('.endpoint-item input'))
+      .map(i => i.value.trim())
+      .filter(Boolean);
+
+    const results = [];
+    const errors = [];
+
+    if (endpointInputs.length === 0) {
+      results.push(renderConfig({
+        uuid: cfg.uuid, host: cfg.host, port: cfg.port,
+        params: editedParams, name: cfg.name
+      }));
+    } else {
+      endpointInputs.forEach((entry, idx) => {
+        const m = entry.match(/^(.+):(\d+)$/);
+        if (!m) {
+          errors.push(`"${entry}" is not a valid host:port pair.`);
+          return;
+        }
+        const [, host, port] = m;
+        results.push(renderConfig({
+          uuid: cfg.uuid, host, port,
+          params: editedParams,
+          name: String(idx + 1).padStart(2, '0')
+        }));
+      });
+    }
+
+    let text = results.join('\n');
+    if (errors.length) text += '\n\nErrors:\n' + errors.join('\n');
+    out.textContent = text || '(nothing generated)';
+  });
+
+  $('copy-btn').addEventListener('click', () => {
+    const text = $('output').textContent;
+    if (!text || text === '(nothing yet)') return;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = $('copy-btn');
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = old, 1200);
+    });
+  });
+
+  // start with one empty endpoint row for convenience
+  addEndpointRow();
+})();
+</script>
+
+</body>
+</html>
