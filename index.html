@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VLESS Config Tool</title>
 <style>
   :root {
@@ -106,6 +107,61 @@
   .err { color: #f2a4b8; font-size: 0.85rem; margin-top: 8px; }
   .copy-btn { float: right; }
   details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+
+  @media (max-width: 600px) {
+    body {
+      padding: 16px 12px 32px;
+    }
+    h1 {
+      font-size: 1.25rem;
+    }
+    p.sub {
+      line-height: 1.5;
+    }
+    .panel {
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .grid2 {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    button {
+      min-height: 42px;
+      margin-right: 6px;
+    }
+    #preset-btn,
+    #clear-fp-btn,
+    #bulk-add-btn,
+    #bulk-replace-btn,
+    #add-endpoint-btn,
+    #clear-endpoints-btn {
+      width: 100%;
+      margin-right: 0;
+    }
+    .endpoint-item {
+      align-items: stretch;
+    }
+    .endpoint-item input {
+      min-width: 0;
+    }
+    .endpoint-item button {
+      min-width: 44px;
+      padding: 8px;
+    }
+    #generate-btn,
+    #copy-btn {
+      width: 100%;
+      margin: 6px 0 0;
+    }
+    .copy-btn {
+      float: none;
+    }
+    .out {
+      max-height: 280px;
+      overflow-wrap: anywhere;
+    }
+  }
 </style>
 </head>
 <body>
