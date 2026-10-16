@@ -13,3 +13,5 @@
 [RAW BPB PANEL1](https://heunbe8kbofj6o0il.pages.dev/qMuMKSDqS-HPI/sub/raw?app=xray#%F0%9F%92%A6%20BPB%20Raw)
 
 [RAW BPB PANEL2](https://6gas8gffmlu10ni5.2z18bsttqniolisj-rmv.workers.dev/g00yxl6RfH2dPWyR/sub/raw?app=xray#%F0%9F%92%A6%20BPB%20Raw)
+
+bpb remote setting link: https://ez9gksgvdadsq8d51.pages.dev/Fqb4okDBkwy3OFz/sub/share-settings
