@@ -264,12 +264,13 @@
   const PRESET_CS =
   "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256";
 
-  const PRESET_FM = '{
+  // Backticks (not quotes) so the JSON can span several lines.
+  const PRESET_FM = `{
   "tcp": [
     {"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0"}},
     {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11"}}
   ]
-}';
+}`;
 
   const PRESET_ECH = "cloudflare-ech.com+udp://1.1.1.1";
 
@@ -442,7 +443,11 @@
     if (fp) params.fp = fp; else delete params.fp;
     if (sni) params.sni = sni; else delete params.sni;
     if (cs) params.cs = cs; else delete params.cs;
-    if (fm) params.fm = encodeParam(fm); else delete params.fm;
+    if (fm) {
+      let f = fm;
+      try { f = JSON.stringify(JSON.parse(fm)); } catch (e) {}
+      params.fm = encodeParam(f);
+    } else delete params.fm;
     if (ech) params.ech = encodeParam(ech); else delete params.ech;
 
     return params;
