@@ -1,6 +1,6 @@
-[VLESS CONFIGURE](https://not0-0parsa.github.io/vlessFF/vc.html)
+[VLESS CONFIGURE](https://not0-0parsa.github.io/vlessFF/websites/vc.html)
 
-[RANDOM WORD GENERATIR](https://not0-0parsa.github.io/vlessFF/RWG.html)
+[RANDOM WORD GENERATOR](https://not0-0parsa.github.io/vlessFF/websites/rwg.html)
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------
 
