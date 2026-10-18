@@ -66,6 +66,7 @@
     border: 1px solid var(--border);
     color: var(--text);
   }
+  button.secondary.active { border-color: var(--accent); color: var(--accent); }
   button:hover { opacity: 0.9; }
   .grid2 {
     display: grid;
@@ -151,6 +152,7 @@
         <option value="qq">qq</option>
         <option value="random">random</option>
         <option value="randomized">randomized</option>
+        <option value="">none (omit fp)</option>
         <option value="__custom__">custom…</option>
       </select>
       <input id="fp-custom" placeholder="custom fp value" style="display:none; margin-top:6px;">
@@ -215,10 +217,14 @@
     if (!u.username || !u.hostname || !u.port) {
       throw new Error("URL is missing uuid, host, or port.");
     }
+    const safeDecode = (x) => { try { return decodeURIComponent(x); } catch (e) { return x; } };
     const params = {};
-    for (const [k, v] of u.searchParams.entries()) {
-      params[k] = v;
-    }
+    u.search.replace(/^\?/, '').split('&').filter(Boolean).forEach(pair => {
+      const i = pair.indexOf('=');
+      const k = i < 0 ? pair : pair.slice(0, i);
+      const v = i < 0 ? '' : pair.slice(i + 1);
+      params[safeDecode(k)] = safeDecode(v);
+    });
     return {
       uuid: u.username,
       host: u.hostname,
@@ -262,6 +268,13 @@
 
   const PRESET_ECH = "cloudflare-ech.com+udp://1.1.1.1";
 
+  let activePreset = null; // 'A' (default 1), 'B' (default 2) or null
+  function setPreset(p) {
+    activePreset = p;
+    $('preset-unsafe-btn').classList.toggle('active', p === 'A');
+    $('preset-chrome-btn').classList.toggle('active', p === 'B');
+  }
+
   function setFp(value) {
     $('fp-value').value = value;
     $('fp-custom').value = '';
@@ -271,6 +284,7 @@
   // Default 1: fp=unsafe + cipher suites + fragment profile, no ECH
   $('preset-unsafe-btn').addEventListener('click', () => {
     setFp('unsafe');
+    setPreset('A');
     $('cs-value').value = PRESET_CS;
     $('fm-value').value = PRESET_FM;
     $('ech-value').value = '';
@@ -279,6 +293,7 @@
   // Default 2: fp=chrome, no cipher suites, no fragment, ECH on
   $('preset-chrome-btn').addEventListener('click', () => {
     setFp('chrome');
+    setPreset('B');
     $('cs-value').value = '';
     $('fm-value').value = '';
     $('ech-value').value = PRESET_ECH;
@@ -289,6 +304,7 @@
     $('fm-value').value = '';
     $('ech-value').value = '';
     $('fp-custom').value = '';
+    setPreset(null);
   });
 
   // ---- endpoint list UI ----
@@ -355,36 +371,48 @@
     $('fp-custom').style.display = $('fp-value').value === '__custom__' ? 'block' : 'none';
   });
 
-  // ---- prefill fingerprint fields from a parsed config, if present ----
+  // ---- sync option fields to the pasted config ----
+  // Anything the pasted link doesn't have is reset (sni/cs/fm/ech empty, fp = none).
   function prefillFromParsed(cfg) {
-    if (cfg.params.sni) $('sni-value').value = cfg.params.sni;
-    if (cfg.params.fp) {
-      const known = Array.from($('fp-value').options).some(o => o.value === cfg.params.fp);
-      if (known) {
-        $('fp-value').value = cfg.params.fp;
-        $('fp-custom').style.display = 'none';
-      } else {
-        $('fp-value').value = '__custom__';
-        $('fp-custom').style.display = 'block';
-        $('fp-custom').value = cfg.params.fp;
-      }
+    const p = cfg.params;
+    $('sni-value').value = p.sni || '';
+    const fp = p.fp || '';
+    const known = Array.from($('fp-value').options).some(o => o.value === fp && o.value !== '__custom__');
+    if (known) {
+      $('fp-value').value = fp;
+      $('fp-custom').value = '';
+      $('fp-custom').style.display = 'none';
+    } else {
+      $('fp-value').value = '__custom__';
+      $('fp-custom').value = fp;
+      $('fp-custom').style.display = 'block';
     }
-    if (cfg.params.cs) $('cs-value').value = cfg.params.cs;
-    if (cfg.params.fm) $('fm-value').value = cfg.params.fm;
-    if (cfg.params.ech) $('ech-value').value = cfg.params.ech;
+    $('cs-value').value = p.cs || '';
+    $('fm-value').value = p.fm || '';
+    $('ech-value').value = p.ech || '';
+    setPreset(null);
   }
 
-  $('input-url').addEventListener('blur', () => {
+  let lastSynced = '';
+  function syncFromInput(showErr) {
     const raw = $('input-url').value.trim();
-    if (!raw) return;
+    if (!raw) { if (showErr) $('parse-err').textContent = ''; return; }
+    if (raw === lastSynced) return; // don't overwrite a preset the user clicked afterwards
     try {
-      const cfg = parseConfig(raw);
-      prefillFromParsed(cfg);
+      prefillFromParsed(parseConfig(raw));
+      lastSynced = raw;
       $('parse-err').textContent = '';
     } catch (e) {
-      $('parse-err').textContent = e.message;
+      if (showErr) $('parse-err').textContent = e.message;
     }
+  }
+  let syncTimer;
+  $('input-url').addEventListener('input', () => {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncFromInput(false), 250);
   });
+  $('input-url').addEventListener('paste', () => setTimeout(() => syncFromInput(false), 0));
+  $('input-url').addEventListener('blur', () => syncFromInput(true));
 
   // ---- generate ----
 
@@ -444,7 +472,7 @@
     if (endpointInputs.length === 0) {
       results.push(renderConfig({
         uuid: cfg.uuid, host: cfg.host, port: cfg.port,
-        params: editedParams, name: cfg.name
+        params: editedParams, name: activePreset ? activePreset + '-01' : cfg.name
       }));
     } else {
       endpointInputs.forEach((entry, idx) => {
@@ -457,7 +485,7 @@
         results.push(renderConfig({
           uuid: cfg.uuid, host, port,
           params: editedParams,
-          name: String(idx + 1).padStart(2, '0')
+          name: (activePreset ? activePreset + '-' : '') + String(idx + 1).padStart(2, '0')
         }));
       });
     }
