@@ -1,6 +1,14 @@
-[VLESS CONFIGURE](https://not0-0parsa.github.io/vlessFF/websites/vc.html)
-
 [RANDOM WORD GENERATOR](https://not0-0parsa.github.io/vlessFF/websites/rwg.html)
+
+[ATOMICMAIL](https://atomicmail.io/)
+
+[CLOUDFLARE SIGN UP](https://dash.cloudflare.com/sign-up)
+
+[CREATE PANEL](https://wizard.bpb-panel.workers.dev)
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+
+[VLESS CONFIGURE](https://not0-0parsa.github.io/vlessFF/websites/vc.html)
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -12,5 +20,6 @@
 
 [BPB PANEL3](https://raw.githubusercontent.com/Not0-0Parsa/vlessFF/refs/heads/main/panel3.txt) (pages)
 
-[CREATE PANEL](https://wizard.bpb-panel.workers.dev)
+------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
