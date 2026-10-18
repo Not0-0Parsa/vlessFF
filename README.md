@@ -10,12 +10,3 @@
 
 [CREATE PANEL](https://wizard.bpb-panel.workers.dev)
 
-[RAW BPB PANEL0](https://m53srkwt15oy2ex1togo7sxpdik5.pages.dev/c07vfQU6-O11jh_m/sub/raw?app=xray#%F0%9F%92%A6%20BPB%20Raw)
-
-[RAW BPB PANEL1](https://heunbe8kbofj6o0il.pages.dev/qMuMKSDqS-HPI/sub/raw?app=xray#%F0%9F%92%A6%20BPB%20Raw)
-
-[RAW BPB PANEL2](https://ez9gksgvdadsq8d51.pages.dev/Fqb4okDBkwy3OFz/sub/raw?app=xray#%F0%9F%92%A6%20BPB%20Raw)
-
-[RAW BPB PANEL3](https://fb8zpx3-69obx-6z.pages.dev/q7snio7z-AB77xJG/sub/raw?app=xray#%F0%9F%92%A6%20BPB%20Raw)
-
-bpb remote setting link: https://ez9gksgvdadsq8d51.pages.dev/Fqb4okDBkwy3OFz/sub/share-settings
