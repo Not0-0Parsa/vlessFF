@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random Words Generator</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2f3a;
+    --text: #e6e8eb;
+    --muted: #9aa2ad;
+    --accent: #5b8def;
+    --ok: #7bd88f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .out {
+    background: #0d0f13;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 1.15rem;
+    word-break: break-all;
+    cursor: pointer;
+    user-select: all;
+    transition: border-color 0.15s;
+  }
+  .out:hover { border-color: var(--accent); }
+  .out.copied { border-color: var(--ok); }
+  .hint { color: var(--muted); font-size: 0.8rem; margin-top: 8px; min-height: 1.2em; }
+  .hint.ok { color: var(--ok); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-top: 14px;
+    margin-right: 8px;
+  }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  button:hover { opacity: 0.9; }
+
+  @media (max-width: 768px) {
+    body { padding: 16px 12px 32px; }
+    h1 { font-size: 1.25rem; }
+    p.sub { line-height: 1.5; }
+    .panel { padding: 14px; margin-bottom: 14px; }
+    .out { font-size: 1rem; }
+    button {
+      display: block;
+      width: 100%;
+      min-height: 42px;
+      margin: 10px 0 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>Random Words Generator</h1>
+<p class="sub">Runs entirely in your browser — nothing is sent anywhere. Click the text to copy it.</p>
+
+<div class="panel">
+  <label>Output</label>
+  <div class="out" id="out" title="Click to copy">...</div>
+  <div class="hint" id="hint">Click the text to copy</div>
+  <button id="gen">Generate</button>
+  <button id="copy" class="secondary">Copy</button>
+</div>
+
+<script>
+  const WORDS = ("able acid aged also area army away baby back ball band bank base bath bear beat bell belt bike bird blue boat body bold bone book boot born boss bowl brave bread brick brief bring brook brown build bulb burn bush cabin cake calm camel camp candy cape card care cart case cave chair chalk charm chart chase cheap check cheer chess chief child chip city clay clean clear clerk cliff climb clock cloud coach coast coin cold comet copper coral corn couch crab craft crane crash cream creek crisp crowd crown cube curve daily dance dark dawn deep deer delta desk dew diamond dino dish dive dock dodge dog doll door dove draft dream dress drift drum duck dune dust eagle earth east echo edge elbow elm ember empty engine epic event fable face fair fall fancy farm fast feast fern field fig film finch fire firm fish flag flame flash fleet flint float flock flood floor flour flute foam fog folk forest fork fort fox frame fresh frog frost fruit gamma garden gate gaze gem ghost giant gift glad glass glide globe glow goat gold grace grain grape grass green grid grove guard guest guide gull habit hall hammer hand happy harbor hare hawk hazel heart hedge hello heron hill hobby holly honey hood hope horn horse hotel house humble hunt icon idea igloo image ink iron island ivory jade jazz jelly jewel joy jungle kayak keen kettle key kind king kite kiwi knight koala lace lake lamp lance land lark laser latch leaf lemon lens light lily lime link lion lotus lucky lunar lynx magic maple marble marsh mason meadow melon mint mist mocha moon moss moth mount mouse music navy nest night noble north nova oak oasis ocean olive onyx opal orbit otter owl oxide paint palm panda paper parrot peach pearl pebble pepper pilot pine pixel plain planet plum polar pond pony poppy prism pulse puma quail quartz queen quick quiet quill rabbit radar rain raven reef relay ridge river robin rock rocket rose round ruby rust sage sail salt sand scout seal shadow shell shore silk silver sky slate sleek snow solar sonic south spark spice spike spirit spring spruce star steel stone storm stream sugar summit sun swan swift tango tea tempo thorn thunder tiger timber toast topaz tower trail tree tulip tundra turtle twin umber union urban valley velvet verde vine violet vivid wave west whale wheat wild willow wind winter wolf wood wren yacht yellow yoga zebra zen zephyr zest zinc zone").split(/\s+/);
+
+  const out = document.getElementById('out');
+  const hint = document.getElementById('hint');
+  let timer;
+
+  // unbiased crypto-random integer in [0, n)
+  function rand(n) {
+    const max = Math.floor(0x100000000 / n) * n;
+    const buf = new Uint32Array(1);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= max);
+    return buf[0] % n;
+  }
+
+  function generate() {
+    const picked = [];
+    while (picked.length < 3) {
+      const w = WORDS[rand(WORDS.length)];
+      if (!picked.includes(w)) picked.push(w);
+    }
+    out.textContent = picked.join('.');
+    out.classList.remove('copied');
+    setHint('Click the text to copy', false);
+  }
+
+  function setHint(msg, ok) {
+    hint.textContent = msg;
+    hint.className = 'hint' + (ok ? ' ok' : '');
+  }
+
+  async function copy() {
+    const text = out.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+    out.classList.add('copied');
+    setHint('Copied!', true);
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      out.classList.remove('copied');
+      setHint('Click the text to copy', false);
+    }, 1500);
+  }
+
+  document.getElementById('gen').addEventListener('click', generate);
+  document.getElementById('copy').addEventListener('click', copy);
+  out.addEventListener('click', copy);
+
+  generate();
+</script>
+</body>
+</html>
