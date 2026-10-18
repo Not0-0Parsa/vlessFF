@@ -98,7 +98,6 @@
     overflow-y: auto;
   }
   .err { color: #f2a4b8; font-size: 0.85rem; margin-top: 8px; }
-
   @media (max-width: 768px) {
     body { padding: 16px 12px 32px; }
     h1 { font-size: 1.25rem; }
@@ -180,6 +179,7 @@
 <div class="panel">
   <h3 style="margin-top:0;">Generate endpoint variants (optional)</h3>
   <p class="sub" style="margin-top:0;">Add alternate host:port pairs. One config will be rendered per entry, using the same uuid/params but a different endpoint. Leave empty to just render the single edited config below.</p>
+
   <label for="bulk-endpoints">Paste a list (one per line, "ip" or "ip:port" — missing port defaults to 443)</label>
   <textarea id="bulk-endpoints" placeholder="45.80.111.8:443&#10;104.26.3.165&#10;172.67.200.133:443"></textarea>
   <button id="bulk-add-btn" class="secondary" type="button">Add all from list</button>
@@ -192,6 +192,7 @@
 
 <button id="generate-btn" type="button">Generate</button>
 <button id="copy-btn" class="secondary" type="button">Copy output</button>
+<button id="download-btn" class="secondary" type="button">Download file</button>
 
 <div class="panel" style="margin-top:18px;">
   <label style="margin-top:0;">Output</label>
@@ -203,7 +204,6 @@
   const $ = (id) => document.getElementById(id);
 
   // ---- parsing helpers ----
-
   function parseConfig(rawUrl) {
     let u;
     try {
@@ -260,21 +260,21 @@
   }
 
   // ---- presets ----
-
   const PRESET_CS =
   "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256";
 
   // Backticks (not quotes) so the JSON can span several lines.
   const PRESET_FM = `{
-  "tcp": [
-    {"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0"}},
-    {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11"}}
-  ]
+"tcp": [
+{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0"}},
+{"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11"}}
+]
 }`;
 
   const PRESET_ECH = "cloudflare-ech.com+udp://1.1.1.1";
 
   let activePreset = null; // 'A' (default 1), 'B' (default 2) or null
+
   function setPreset(p) {
     activePreset = p;
     $('preset-unsafe-btn').classList.toggle('active', p === 'A');
@@ -314,7 +314,6 @@
   });
 
   // ---- endpoint list UI ----
-
   function addEndpointRow(value = '') {
     const row = document.createElement('div');
     row.className = 'endpoint-item';
@@ -327,7 +326,6 @@
   }
 
   $('add-endpoint-btn').addEventListener('click', () => addEndpointRow());
-
   $('clear-endpoints-btn').addEventListener('click', () => {
     $('endpoint-list').innerHTML = '';
   });
@@ -412,6 +410,7 @@
       if (showErr) $('parse-err').textContent = e.message;
     }
   }
+
   let syncTimer;
   $('input-url').addEventListener('input', () => {
     clearTimeout(syncTimer);
@@ -421,17 +420,18 @@
   $('input-url').addEventListener('blur', () => syncFromInput(true));
 
   // ---- generate ----
-
   function currentFpValue() {
     const sel = $('fp-value').value;
     if (sel === '__custom__') return $('fp-custom').value.trim();
     return sel;
   }
+
   function encodeParam(v) {
     let d = v;
     try { d = decodeURIComponent(v); } catch (e) {}
     return encodeURIComponent(d);
   }
+
   function buildEditedParams(baseParams) {
     const params = Object.assign({}, baseParams);
     const fp = currentFpValue();
@@ -449,18 +449,20 @@
       params.fm = encodeParam(f);
     } else delete params.fm;
     if (ech) params.ech = encodeParam(ech); else delete params.ech;
-
     return params;
   }
+
+  // Configs from the most recent Generate (no error lines) — used by Download.
+  let lastResults = [];
 
   $('generate-btn').addEventListener('click', () => {
     const out = $('output');
     const raw = $('input-url').value.trim();
+    lastResults = [];
     if (!raw) {
       out.textContent = 'Paste a VLESS link above first.';
       return;
     }
-
     let cfg;
     try {
       cfg = parseConfig(raw);
@@ -500,6 +502,8 @@
       });
     }
 
+    lastResults = results.slice();
+
     let text = results.join('\n');
     if (errors.length) text += '\n\nErrors:\n' + errors.join('\n');
     out.textContent = text || '(nothing generated)';
@@ -514,6 +518,36 @@
       btn.textContent = 'Copied!';
       setTimeout(() => btn.textContent = old, 1200);
     });
+  });
+
+  // ---- download ----
+  // Filename: config-yy-mm-dd-HH:MM:SS.txt (local time)
+  function timestampName() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `config-${yy}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.txt`;
+  }
+
+  $('download-btn').addEventListener('click', () => {
+    // If nothing has been generated yet, run Generate first.
+    if (!lastResults.length) $('generate-btn').click();
+    if (!lastResults.length) return; // Generate already showed the reason in the output box
+
+    const blob = new Blob([lastResults.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = timestampName();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    const btn = $('download-btn');
+    const old = btn.textContent;
+    btn.textContent = 'Downloaded!';
+    setTimeout(() => btn.textContent = old, 1200);
   });
 
   // start with one empty endpoint row for convenience
