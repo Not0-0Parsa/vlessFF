@@ -72,14 +72,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 0 14px;
   }
-  .row {
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-    margin-top: 8px;
-  }
-  .row input { flex: 1; }
-  .row button { margin: 0; padding: 8px 10px; }
   .endpoint-list { margin-top: 8px; }
   .endpoint-item {
     display: flex;
@@ -105,58 +97,29 @@
     overflow-y: auto;
   }
   .err { color: #f2a4b8; font-size: 0.85rem; margin-top: 8px; }
-  .copy-btn { float: right; }
-  details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
 
   @media (max-width: 768px) {
-    body {
-      padding: 16px 12px 32px;
-    }
-    h1 {
-      font-size: 1.25rem;
-    }
-    p.sub {
-      line-height: 1.5;
-    }
-    .panel {
-      padding: 14px;
-      margin-bottom: 14px;
-    }
-    .grid2 {
-      grid-template-columns: 1fr;
-      gap: 0;
-    }
-    textarea, input, select {
-      min-height: 44px;
-      font-size: 16px;
-    }
-    textarea {
-      min-height: 96px;
-    }
+    body { padding: 16px 12px 32px; }
+    h1 { font-size: 1.25rem; }
+    p.sub { line-height: 1.5; }
+    .panel { padding: 14px; margin-bottom: 14px; }
+    .grid2 { grid-template-columns: 1fr; gap: 0; }
+    textarea, input, select { min-height: 44px; font-size: 16px; }
+    textarea { min-height: 96px; }
     button {
       display: block;
       width: 100%;
       min-height: 42px;
       margin: 10px 0 0;
     }
-    .endpoint-item {
-      align-items: stretch;
-    }
-    .endpoint-item input {
-      min-width: 0;
-    }
+    .endpoint-item { align-items: stretch; }
+    .endpoint-item input { min-width: 0; }
     .endpoint-item button {
       width: auto;
       min-width: 44px;
       padding: 8px;
     }
-    .copy-btn {
-      float: none;
-    }
-    .out {
-      max-height: 280px;
-      overflow-wrap: anywhere;
-    }
+    .out { max-height: 280px; overflow-wrap: anywhere; }
   }
 </style>
 </head>
@@ -198,13 +161,17 @@
     </div>
   </div>
 
-  <label for="cs-value">cs (cipher suites, raw query-encoded string — leave blank to omit)</label>
-  <textarea id="cs-value" placeholder="TLS_AES_256_GCM_SHA384%3ATLS_CHACHA20_POLY1305_SHA256%3A..."></textarea>
+  <label for="cs-value">cs (cipher suites, plain text separated by colons — leave blank to omit)</label>
+  <textarea id="cs-value" placeholder="TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:..."></textarea>
 
-  <label for="fm-value">fm (fragment profile, raw query-encoded string — leave blank to omit)</label>
-  <textarea id="fm-value" placeholder="%7B%22tcp%22%3A...%7D"></textarea>
+  <label for="fm-value">fm (fragment profile, plain JSON — it gets URL-encoded on output; leave blank to omit)</label>
+  <textarea id="fm-value" placeholder='{"tcp": [{"type": "fragment", "settings": {"packets": "tlshello", ...}}]}'></textarea>
 
-  <button id="preset-btn" class="secondary" type="button">Fill cs/fm with a common preset</button>
+  <label for="ech-value">ech (ECH config, plain text — it gets URL-encoded on output; leave blank to omit)</label>
+  <input id="ech-value" placeholder="cloudflare-ech.com+udp://1.1.1.1">
+
+  <button id="preset-unsafe-btn" class="secondary" type="button">Default 1: unsafe + cipher suites + fragment</button>
+  <button id="preset-chrome-btn" class="secondary" type="button">Default 2: chrome + ECH</button>
   <button id="clear-fp-btn" class="secondary" type="button">Clear fingerprint fields</button>
 </div>
 
@@ -233,7 +200,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
 
-  // ---- parsing helpers, mirroring the Python module's logic ----
+  // ---- parsing helpers ----
 
   function parseConfig(rawUrl) {
     let u;
@@ -261,9 +228,9 @@
     };
   }
 
-  // Order fields are written back out in. Anything typed but not
-  // listed here still gets included at the end, preserving other params.
-  const PARAM_ORDER = ["encryption", "security", "sni", "fp", "alpn", "cs", "fm", "type", "host", "path"];
+  // Order fields are written back out in. Anything not listed
+  // here still gets included at the end, preserving other params.
+  const PARAM_ORDER = ["encryption", "security", "sni", "fp", "alpn", "cs", "fm", "ech", "type", "host", "path"];
 
   function renderConfig(cfg) {
     const parts = [];
@@ -272,13 +239,11 @@
       if (cfg.params[key] === undefined || cfg.params[key] === '') continue;
       let value = cfg.params[key];
       if (key === 'path') {
-        // keep path safely escaped but preserve slashes
         value = encodeURIComponent(value).replace(/%2F/g, '/');
       }
       parts.push(`${key}=${value}`);
       used.add(key);
     }
-    // preserve any extra params not in our known order
     for (const key of Object.keys(cfg.params)) {
       if (used.has(key) || cfg.params[key] === '') continue;
       parts.push(`${key}=${cfg.params[key]}`);
@@ -288,12 +253,43 @@
     return url;
   }
 
-  // A common cipher-suite / fragmentation preset (kept query-encoded,
-  // just like the original), offered as a convenience fill-in.
+  // ---- presets ----
+
   const PRESET_CS =
   "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256";
 
   const PRESET_FM = '{"tcp": [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0"}},{"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11"}}]}';
+
+  const PRESET_ECH = "cloudflare-ech.com+udp://1.1.1.1";
+
+  function setFp(value) {
+    $('fp-value').value = value;
+    $('fp-custom').value = '';
+    $('fp-custom').style.display = 'none';
+  }
+
+  // Default 1: fp=unsafe + cipher suites + fragment profile, no ECH
+  $('preset-unsafe-btn').addEventListener('click', () => {
+    setFp('unsafe');
+    $('cs-value').value = PRESET_CS;
+    $('fm-value').value = PRESET_FM;
+    $('ech-value').value = '';
+  });
+
+  // Default 2: fp=chrome, no cipher suites, no fragment, ECH on
+  $('preset-chrome-btn').addEventListener('click', () => {
+    setFp('chrome');
+    $('cs-value').value = '';
+    $('fm-value').value = '';
+    $('ech-value').value = PRESET_ECH;
+  });
+
+  $('clear-fp-btn').addEventListener('click', () => {
+    $('cs-value').value = '';
+    $('fm-value').value = '';
+    $('ech-value').value = '';
+    $('fp-custom').value = '';
+  });
 
   // ---- endpoint list UI ----
 
@@ -314,24 +310,18 @@
     $('endpoint-list').innerHTML = '';
   });
 
-  // Normalize a pasted line into "ip:port" (or "host:port"), defaulting
-  // the port to 443 when none is given. Handles bare IPv4, bare hosts,
-  // and already-complete ip:port / host:port pairs. Ignores blank lines
-  // and de-dupes exact repeats.
+  // Normalize a pasted line into "host:port", defaulting port to 443.
   function normalizeEndpointLine(line) {
     const trimmed = line.trim();
     if (!trimmed) return null;
-    // already has a :port suffix (numeric)
     const m = trimmed.match(/^(.+):(\d+)$/);
     if (m) return `${m[1]}:${m[2]}`;
-    // no port given — default to 443
     return `${trimmed}:443`;
   }
 
   function parseBulkEndpoints() {
     const raw = $('bulk-endpoints').value;
     const lines = raw.split(/\r?\n/).map(normalizeEndpointLine).filter(Boolean);
-    // de-dupe while preserving order
     const seen = new Set();
     const result = [];
     for (const l of lines) {
@@ -342,9 +332,7 @@
 
   $('bulk-add-btn').addEventListener('click', () => {
     const entries = parseBulkEndpoints();
-    // avoid duplicating rows already present
     const existing = new Set(Array.from(document.querySelectorAll('.endpoint-item input')).map(i => i.value.trim()));
-    // if the only existing row is a single empty one, drop it first
     const rows = document.querySelectorAll('.endpoint-item input');
     if (rows.length === 1 && rows[0].value.trim() === '') {
       rows[0].closest('.endpoint-item').remove();
@@ -367,21 +355,6 @@
     $('fp-custom').style.display = $('fp-value').value === '__custom__' ? 'block' : 'none';
   });
 
-  $('preset-btn').addEventListener('click', () => {
-    $('cs-value').value = PRESET_CS;
-    $('fm-value').value = PRESET_FM;
-    if (!$('fp-value').value || $('fp-value').value === '__custom__') {
-      $('fp-value').value = 'unsafe';
-      $('fp-custom').style.display = 'none';
-    }
-  });
-
-  $('clear-fp-btn').addEventListener('click', () => {
-    $('cs-value').value = '';
-    $('fm-value').value = '';
-    $('fp-custom').value = '';
-  });
-
   // ---- prefill fingerprint fields from a parsed config, if present ----
   function prefillFromParsed(cfg) {
     if (cfg.params.sni) $('sni-value').value = cfg.params.sni;
@@ -398,6 +371,7 @@
     }
     if (cfg.params.cs) $('cs-value').value = cfg.params.cs;
     if (cfg.params.fm) $('fm-value').value = cfg.params.fm;
+    if (cfg.params.ech) $('ech-value').value = cfg.params.ech;
   }
 
   $('input-url').addEventListener('blur', () => {
@@ -430,11 +404,13 @@
     const sni = $('sni-value').value.trim();
     const cs = $('cs-value').value.trim();
     const fm = $('fm-value').value.trim();
+    const ech = $('ech-value').value.trim();
 
     if (fp) params.fp = fp; else delete params.fp;
     if (sni) params.sni = sni; else delete params.sni;
     if (cs) params.cs = cs; else delete params.cs;
     if (fm) params.fm = encodeParam(fm); else delete params.fm;
+    if (ech) params.ech = encodeParam(ech); else delete params.ech;
 
     return params;
   }
